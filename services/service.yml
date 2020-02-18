@@ -1,0 +1,240 @@
+---
+version: "3.6"
+
+networks:
+  swarmservices-net:
+    external: true
+
+services:
+
+  prometheus:
+        image: prom/prometheus:latest
+        volumes:
+            - "/root/prometheus:/etc/prometheus"
+        command:
+            - --config.file=/etc/prometheus/prometheus.yml
+        ports:
+            - 9090:9090
+        networks:
+          - swarmservices-net
+        links:
+            - cadvisor:cadvisor
+        deploy:
+          mode: replicated
+          replicas: 1
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.prometheus.rule=Host(`prometheus.local`)"
+            - "traefik.http.routers.prometheus.entrypoints=web"
+            - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+        logging:
+          driver: "fluentd"
+          options:
+            fluentd-address: localhost:24224
+            tag: prometheus
+        
+        
+  node-exporter1:
+        image: prom/node-exporter
+        volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+        networks:
+          - swarmservices-net
+        command:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --collector.filesystem.ignored-mount-points
+            - ^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+        deploy:
+          mode: replicated
+          replicas: 1
+          placement:
+            constraints:
+            - node.labels.alpha == true
+
+  node-exporter2:
+        image: prom/node-exporter
+        volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+        networks:
+          - swarmservices-net
+        command:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --collector.filesystem.ignored-mount-points
+            - ^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+        deploy:
+          mode: replicated
+          replicas: 1
+          placement:
+            constraints:
+            - node.labels.bravo == true
+
+  node-exporter3:
+        image: prom/node-exporter
+        volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+        networks:
+          - swarmservices-net
+        command:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --collector.filesystem.ignored-mount-points
+            - ^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+        deploy:
+          mode: replicated
+          replicas: 1
+          placement:
+            constraints:
+            - node.labels.charlie == true
+
+  cadvisor1:
+        image: google/cadvisor
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+        networks:
+          - swarmservices-net
+        deploy:
+            mode: replicated
+            replicas: 1
+            placement:
+              constraints:
+              - node.labels.alpha == true
+
+  cadvisor2:
+        image: google/cadvisor
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+        networks:
+          - swarmservices-net
+        deploy:
+            mode: replicated
+            replicas: 1
+            placement:
+              constraints:
+              - node.labels.bravo == true
+
+  cadvisor3:
+        image: google/cadvisor
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+        networks:
+          - swarmservices-net
+        deploy:
+            mode: replicated
+            replicas: 1
+            placement:
+              constraints:
+              - node.labels.charlie == true
+
+  grafana:
+        image: grafana/grafana
+        ports:
+            - 3000:3000
+        networks:
+          - swarmservices-net
+        user: "0"
+        volumes:
+            - "/root/grafana:/var/lib/grafana"
+            - "/root/grafana/provisioning:/etc/grafana/provisioning"
+        deploy:
+          mode: replicated
+          replicas: 1
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+            - "traefik.http.routers.grafana.entrypoints=web"
+            - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+  
+  fluentd:
+        image: monotek/fluentd-elasticsearch:latest
+        ports:
+          - "24224:24224"
+          - "24224:24224/udp"
+        volumes:
+          - "/root/fluentd/fluentd.conf:/etc/fluent/config.d/fluentd.conf"
+        networks:
+          - swarmservices-net
+        deploy:
+          mode: replicated
+          replicas: 1
+
+
+  elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.0
+        environment:
+          - bootstrap.memory_lock=true
+          - discovery.type=single-node
+          - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+        ports:
+          - "9200:9200"
+        networks:
+          - swarmservices-net
+        deploy:
+          mode: replicated
+          replicas: 1
+
+  kibana:
+        image: docker.elastic.co/kibana/kibana-oss:6.4.0
+        ports:
+          - "5601:5601"
+        networks:
+          - swarmservices-net
+        volumes:
+          - "/root/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml"
+        deploy:
+          mode: replicated
+          replicas: 1
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.kibana.rule=Host(`kibana.local`)"
+            - "traefik.http.routers.kibana.entrypoints=web"
+            - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+        logging:
+          driver: "fluentd"
+          options:
+            fluentd-address: localhost:24224
+            tag: kibana
+
+  traefik:
+        image: traefik:v2.0
+        restart: always
+        container_name: traefik
+        ports:
+          - "80:80"
+          - "8080:8080"
+        command:
+          - --api.insecure=true
+          - --api.dashboard=true
+          - --api.debug=true
+          - --providers.docker=true
+          - --providers.docker.swarmMode=true
+          - --providers.docker.exposedbydefault=false
+          - --providers.docker.network=swarmservices-net
+          - --entrypoints.web.address=:80
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        networks:
+          - swarmservices-net
+        deploy:
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.api.service=api@internal"
+          placement:
+            constraints:
+              - node.role == manager

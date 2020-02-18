@@ -1,0 +1,89 @@
+- name: preinstall python-minimal for correct modules work
+  hosts: all
+  gather_facts: false
+  tasks:
+    # Установка python-minimal:
+    - name: initial 1. Installing python for Ubuntu and Debian
+      tags: initial
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      register: output
+      changed_when: output.stdout != ""
+
+- name: preinstall software dependencies
+  hosts: all
+  tasks:
+    # Установка software-properties-common
+    - name: initial 2. Install software-properties-common
+      tags: python
+      apt: name=software-properties-common
+      when: ansible_os_family == "Debian"
+
+    # Установка python-apt
+    - name: initial 3. Install python-apt
+      tags: python
+      apt: name=python-apt
+      when: ansible_os_family == "Debian"
+
+    - name: initial 4. Install aptitude
+      tags: aptitude
+      apt: name=aptitude
+      when: ansible_os_family == "Debian"
+
+- name: initial server setup
+  hosts: all
+  gather_facts: true
+  tasks:
+  # Установка Timezone:
+  - name: initial 4. Setting timezone for server
+    tags: timezone
+    timezone: name={{ server_time_zone }}
+
+  # Обновление кеша apt:
+  - name: initial 5. Update package cache
+    tags: cache
+    apt: update_cache=true
+    changed_when: no
+    when: ansible_os_family == "Debian"
+
+  # Установка python-software-properties
+  - name: initial 6. Install software-properties-common
+    tags: python
+    apt: name=software-properties-common
+    when: ansible_os_family == "Debian"
+
+  # Установка ssh-keys для безопасного доступа
+  - name: initial 7. Add new ssh-keys to root
+    authorized_key: user=root key={{ item.ssh_key }}
+    with_items: "{{ root_ssh_keys }}"
+    tags: ssh
+
+  # Установка hostname сервера
+  - name: initial 8 Set hostname from inventory
+    tags: hostname
+    hostname: name={{ inventory_hostname }}
+    when: ansible_os_family == "Debian"
+  
+  # Добавление hostname в /etc/hosts
+  - name: initial 9 Add hostname to etc/hosts
+    lineinfile: 
+      path: /etc/hosts
+      line: '127.0.0.1 {{ inventory_hostname }}'
+      state: present
+
+  # Установка hushlogin файла
+  - name: initial 9. Put .hushlogin file
+    tags: hushlogin
+    copy: content="" dest=/root/.hushlogin
+
+  # Установка типовых пакетов
+  - name: initial 10. Install packages
+    tags: packages 
+    when: ansible_os_family == "Debian"
+    apt: name={{ packages }} update_cache=yes cache_valid_time=360
+    vars:
+      packages:
+        - mc
+        - ncdu
+        - htop
+        - iotop
+        - iftop

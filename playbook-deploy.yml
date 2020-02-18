@@ -1,0 +1,14 @@
+- name: "deploy "
+  hosts: all
+  roles:
+    - { role: deploy_services }
+
+- name: "deploy stack"
+  hosts: docker_swarm_manager
+  tasks:
+  - name: deploy stack
+    docker_stack:
+      state: present
+      name: swarmservices
+      compose:
+        - /home/ubuntu/services/service.yml

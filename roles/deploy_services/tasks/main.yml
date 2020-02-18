@@ -1,0 +1,36 @@
+- name: create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+  - /root/prometheus/
+  - /root/grafana/
+  - /root/grafana/provisioning
+  - /root/kibana/
+  - /root/fluentd
+
+- name: cp prometheus config
+  copy:
+    src: "files/prometheus.yml"
+    dest: /root/prometheus/prometheus.yml
+
+- name: cp kibana config
+  copy:
+    src: "files/kibana.yml"
+    dest: /root/kibana/kibana.yml
+
+- name: cp kibana config
+  copy:
+    src: "files/fluentd.conf"
+    dest: /root/fluentd/fluentd.conf
+
+- name: cp compose
+  copy:
+    src: "services/service.yml"
+    dest: /home/ubuntu/services/
+
+- name: install jsondiff and pyyaml
+  pip:
+    name:
+    - jsondiff
+    - pyyaml

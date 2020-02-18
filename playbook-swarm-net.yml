@@ -1,0 +1,5 @@
+- name: "create services net"
+  hosts: docker_swarm_manager
+  tasks:
+    - name: create net
+      command: "docker network create --driver=overlay --scope=swarm swarmservices-net"
